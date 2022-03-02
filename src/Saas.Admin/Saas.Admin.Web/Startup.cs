@@ -1,15 +1,7 @@
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Authorization;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
-using Saas.Admin.Web.Models;
+using Saas.Admin.Web.Policies;
 using Saas.Admin.Web.Services;
 
 namespace Saas.Admin.Web
@@ -26,8 +18,12 @@ namespace Saas.Admin.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddDbContext<CatalogDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("CatalogDbConnection")));
-            services.AddTransient<ITenantService, TenantService>();
+            services.AddHttpClient<ITenantService, TenantService>(client =>
+            {
+                client.BaseAddress = new Uri(Configuration["BaseUrl"]);
+            })
+            .AddPolicyHandler(RetryPolicy.GetRetryPolicy())
+            .AddPolicyHandler(CircuitBreakerPolicy.GetCircuitBreakerPolicy());
 
             services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
                 .AddMicrosoftIdentityWebApp(Configuration.GetSection("AzureAd"));

@@ -1,9 +1,16 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Moq;
+using Moq.Protected;
 using Saas.Admin.Web.Models;
 using Saas.Admin.Web.Services;
 using Saas.Domain.Models;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -12,17 +19,30 @@ namespace Saas.Admin.Web.Tests.Services
     public class TenantServiceTests
     {
         private ITenantService _tenantService;
-        
+        HttpClient _httpClient;
+        Mock<HttpMessageHandler> _mockHttpMessageHandler;
         public TenantServiceTests()
         {
-            _tenantService = new TenantService(Context);
+            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+            _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
+            _httpClient.BaseAddress = new Uri("http://example.com/");
+            _tenantService = new TenantService(_httpClient);
         }
 
         [Fact]
         public async Task TenantService_GetItems_EmptyReturnsNone()
         {
             //Arrange
-            
+            var tenants = new List<Tenant> { };
+
+            _mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonSerializer.Serialize(tenants))
+                });
+
             //Act
             var results = await _tenantService.GetItemsAsync();
 
@@ -35,7 +55,13 @@ namespace Saas.Admin.Web.Tests.Services
         {
             //Arrange
             var guid = Guid.NewGuid();
-
+            _mockHttpMessageHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.NotFound,
+                Content = new StringContent("")
+            });
             //Act
             var results = await _tenantService.GetItemAsync(guid);
 
@@ -236,19 +262,5 @@ namespace Saas.Admin.Web.Tests.Services
             //Assert
             Assert.Equal("Test tenant 1", updatedTenantFromDB.Name);
         }
-
-
-        public CatalogDbContext Context => InMemoryContext();
-        private CatalogDbContext InMemoryContext()
-        {
-            var options = new DbContextOptionsBuilder<CatalogDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .EnableSensitiveDataLogging()
-                .Options;
-            var context = new CatalogDbContext(options);
-
-            return context;
-        }
-
     }
 }

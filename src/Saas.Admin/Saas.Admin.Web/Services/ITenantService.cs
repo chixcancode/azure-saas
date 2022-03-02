@@ -1,10 +1,4 @@
-﻿using Saas.Admin.Web.Models;
-using Saas.Domain.Models;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace Saas.Admin.Web.Services
+﻿namespace Saas.Admin.Web.Services
 {
     public interface ITenantService 
     {

@@ -1,64 +1,66 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Saas.Admin.Web.Models;
-using Saas.Domain.Models;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace Saas.Admin.Web.Services
-
-
+﻿namespace Saas.Admin.Web.Services
 {
     public class TenantService : ITenantService
     {
-        private CatalogDbContext _context;
+        private readonly HttpClient _httpClient;
 
-        public TenantService(CatalogDbContext context)
+        public TenantService(HttpClient httpClient)
         {
-            _context = context;
+            _httpClient = httpClient;
         }
 
         public async Task AddItemAsync(Tenant item)
         {
-            _context.Tenants.Add(item);
-            await _context.SaveChangesAsync();
+            var uri = API.Tenant.AddTenant(_httpClient.BaseAddress.ToString());
+
+            var tenantContent = new StringContent(JsonSerializer.Serialize(item), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(uri, tenantContent);
+
+            response.EnsureSuccessStatusCode();
         }
 
-        public async Task DeleteItemAsync(Guid Id)
+
+        public async Task DeleteItemAsync(Guid id)
         {
-            var tenant = await GetItemAsync(Id);
-            if (tenant == null)
-            {
-                // TODO: throw not found exception
-            }
-            else
-            {
-                _context.Tenants.Remove(tenant);
-                await _context.SaveChangesAsync();
-            }
+            var uri = API.Tenant.DeleteTenant(_httpClient.BaseAddress.ToString(), id.ToString());
+
+            var response = await _httpClient.DeleteAsync(uri);
+
+            response.EnsureSuccessStatusCode();
         }
 
         public async Task<Tenant> GetItemAsync(Guid id)
         {
-            return await _context.Tenants.FindAsync(id);
+            var uri = API.Tenant.GetTenant(_httpClient.BaseAddress.ToString(), id.ToString());
+
+            var responseString = await _httpClient.GetStringAsync(uri);
+
+            var tenant = JsonSerializer.Deserialize<Tenant>(responseString);
+
+            return tenant;
         }
 
         public async Task<IEnumerable<Tenant>> GetItemsAsync()
         {
-            return await _context.Tenants.ToListAsync();
+            var uri = API.Tenant.GetTenants(_httpClient.BaseAddress.ToString());
+
+            var responseString = await _httpClient.GetStringAsync(uri);
+
+            var tenants = JsonSerializer.Deserialize<IEnumerable<Tenant>>(responseString);
+            return tenants;
         }
 
         public async Task UpdateItemAsync(Tenant item)
         {
-            if (!await _context.Tenants.AnyAsync(t => t.Id == item.Id))
-            {
-                // TODO: throw not found exception
-                return;
-            }
-            _context.Tenants.Update(item);
-            await _context.SaveChangesAsync();
-        }
+            var uri = API.Tenant.UpdateTenant(_httpClient.BaseAddress.ToString(), item.Id.ToString());
 
+            var tenantContent = new StringContent(JsonSerializer.Serialize(item), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PutAsync(uri, tenantContent);
+
+            response.EnsureSuccessStatusCode();
+        }
     }
 }
 
